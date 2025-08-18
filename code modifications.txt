@@ -1,0 +1,237 @@
+# Testing Scenarios for EOD Limits Check Report
+# Add these code snippets at line 83 in rateseodlimits.py (after the dataSourceFactory call)
+# Comment/uncomment the relevant scenario before running each test
+
+# =============================================================================
+# SCENARIO 1: All VTDs have data (Baseline - no modifications needed)
+# =============================================================================
+# This is the default behavior - no code changes required
+# Just run the script normally to verify all 8 VTDs generate reports with attachments
+
+# =============================================================================
+# SCENARIO 1a: Specifically check GNLR AMRS VTD (multiple sources)
+# =============================================================================
+# No code modification needed - this VTD naturally has multiple sources
+# Verify in the output that both legacy and cirt_unified_screen data sources are present
+
+# =============================================================================
+# SCENARIO 2a: First VTD (AMRS LINEAR RATES) - all measures missing data
+# =============================================================================
+if name == 'AMRS LINEAR RATES':
+    # Clear all snapshots for this VTD
+    snapshotsForSource = {}
+    for key in snapshotsForSource.keys():
+        snapshotsForSource[key] = qztable.Table(snapshotsForSource[key].getSchema())
+    
+    # Clear exposure table
+    expTable = qztable.Table(expTable.getSchema())
+    
+    # Set all measures as missing
+    fieldsDict = {
+        'source': 'cirt_unified_screen', 
+        'measure_names': ['IR01', 'Vega', 'Sov Spread Delta'], 
+        'calc_level': ['VTD+Currency'],
+        'measuresMissingExposures': ['IR01', 'Vega', 'Sov Spread Delta'], 
+        'level': 'AMRS LINEAR RATES'
+    }
+
+# =============================================================================
+# SCENARIO 2b: Last VTD (GNLR EMEA STRUCTURED NOTES) - all measures missing data
+# =============================================================================
+if name == 'GLOBAL NON-LINEAR-EMEA STRUCTURED RATES':
+    # Clear all snapshots for this VTD
+    snapshotsForSource = {}
+    for key in snapshotsForSource.keys():
+        snapshotsForSource[key] = qztable.Table(snapshotsForSource[key].getSchema())
+    
+    # Clear exposure table
+    expTable = qztable.Table(expTable.getSchema())
+    
+    # Set all measures as missing
+    fieldsDict = {
+        'source': 'cirt_unified_screen', 
+        'measure_names': ['IR01', 'Vega'], 
+        'calc_level': ['VTD+Currency'],
+        'measuresMissingExposures': ['IR01', 'Vega'], 
+        'level': 'GLOBAL NON-LINEAR-EMEA STRUCTURED RATES'
+    }
+
+# =============================================================================
+# SCENARIO 2c: Second VTD (APAC LINEAR RATES) - all measures missing data
+# =============================================================================
+if name == 'APAC LINEAR RATES':
+    # Clear all snapshots for this VTD
+    snapshotsForSource = {}
+    for key in snapshotsForSource.keys():
+        snapshotsForSource[key] = qztable.Table(snapshotsForSource[key].getSchema())
+    
+    # Clear exposure table
+    expTable = qztable.Table(expTable.getSchema())
+    
+    # Set all measures as missing
+    fieldsDict = {
+        'source': 'cirt_unified_screen', 
+        'measure_names': ['IR01', 'Sov Spread Delta'], 
+        'calc_level': ['VTD+Currency'],
+        'measuresMissingExposures': ['IR01', 'Sov Spread Delta'], 
+        'level': 'APAC LINEAR RATES'
+    }
+
+# =============================================================================
+# SCENARIO 3a: First VTD (AMRS LINEAR RATES) - one measure missing, others present
+# =============================================================================
+if name == 'AMRS LINEAR RATES':
+    # Keep some data but remove specific measure (e.g., Vega)
+    # Remove Vega from snapshots
+    for key in snapshotsForSource.keys():
+        if 'Vega' in str(snapshotsForSource[key]):
+            vegaRows = snapshotsForSource[key][snapshotsForSource[key]['Measure'] == 'Vega']
+            snapshotsForSource[key] = snapshotsForSource[key].difference(vegaRows)
+    
+    # Remove Vega from exposure table
+    if expTable and 'Measure' in expTable.columnNames():
+        vegaExpRows = expTable[expTable['Measure'] == 'Vega']
+        expTable = expTable.difference(vegaExpRows)
+    
+    # Update fieldsDict to reflect missing Vega only
+    fieldsDict = {
+        'source': 'cirt_unified_screen', 
+        'measure_names': ['IR01', 'Vega', 'Sov Spread Delta'], 
+        'calc_level': ['VTD+Currency'],
+        'measuresMissingExposures': ['Vega'],  # Only Vega is missing
+        'level': 'AMRS LINEAR RATES'
+    }
+
+# =============================================================================
+# SCENARIO 3b: Last VTD (GNLR EMEA STRUCTURED NOTES) - one measure missing
+# =============================================================================
+if name == 'GLOBAL NON-LINEAR-EMEA STRUCTURED RATES':
+    # Keep IR01 data but remove Vega
+    for key in snapshotsForSource.keys():
+        if 'Vega' in str(snapshotsForSource[key]):
+            vegaRows = snapshotsForSource[key][snapshotsForSource[key]['Measure'] == 'Vega']
+            snapshotsForSource[key] = snapshotsForSource[key].difference(vegaRows)
+    
+    # Remove Vega from exposure table
+    if expTable and 'Measure' in expTable.columnNames():
+        vegaExpRows = expTable[expTable['Measure'] == 'Vega']
+        expTable = expTable.difference(vegaExpRows)
+    
+    fieldsDict = {
+        'source': 'cirt_unified_screen', 
+        'measure_names': ['IR01', 'Vega'], 
+        'calc_level': ['VTD+Currency'],
+        'measuresMissingExposures': ['Vega'],  # Only Vega is missing
+        'level': 'GLOBAL NON-LINEAR-EMEA STRUCTURED RATES'
+    }
+
+# =============================================================================
+# SCENARIO 3c: Second VTD (APAC LINEAR RATES) - one measure missing
+# =============================================================================
+if name == 'APAC LINEAR RATES':
+    # Keep IR01 data but remove Sov Spread Delta
+    for key in snapshotsForSource.keys():
+        if 'Sov Spread Delta' in str(snapshotsForSource[key]):
+            deltaRows = snapshotsForSource[key][snapshotsForSource[key]['Measure'] == 'Sov Spread Delta']
+            snapshotsForSource[key] = snapshotsForSource[key].difference(deltaRows)
+    
+    # Remove Sov Spread Delta from exposure table
+    if expTable and 'Measure' in expTable.columnNames():
+        deltaExpRows = expTable[expTable['Measure'] == 'Sov Spread Delta']
+        expTable = expTable.difference(deltaExpRows)
+    
+    fieldsDict = {
+        'source': 'cirt_unified_screen', 
+        'measure_names': ['IR01', 'Sov Spread Delta'], 
+        'calc_level': ['VTD+Currency'],
+        'measuresMissingExposures': ['Sov Spread Delta'],  # Only Sov Spread Delta is missing
+        'level': 'APAC LINEAR RATES'
+    }
+
+# =============================================================================
+# SCENARIO 4: Multiple VTDs missing data
+# One VTD all measures missing + one VTD one measure missing
+# =============================================================================
+# Combine SCENARIO 2a (AMRS all missing) + SCENARIO 3c (APAC one missing)
+if name == 'AMRS LINEAR RATES':
+    # All measures missing for AMRS
+    snapshotsForSource = {}
+    for key in snapshotsForSource.keys():
+        snapshotsForSource[key] = qztable.Table(snapshotsForSource[key].getSchema())
+    
+    expTable = qztable.Table(expTable.getSchema())
+    
+    fieldsDict = {
+        'source': 'cirt_unified_screen', 
+        'measure_names': ['IR01', 'Vega', 'Sov Spread Delta'], 
+        'calc_level': ['VTD+Currency'],
+        'measuresMissingExposures': ['IR01', 'Vega', 'Sov Spread Delta'], 
+        'level': 'AMRS LINEAR RATES'
+    }
+
+elif name == 'APAC LINEAR RATES':
+    # One measure missing for APAC
+    for key in snapshotsForSource.keys():
+        if 'Sov Spread Delta' in str(snapshotsForSource[key]):
+            deltaRows = snapshotsForSource[key][snapshotsForSource[key]['Measure'] == 'Sov Spread Delta']
+            snapshotsForSource[key] = snapshotsForSource[key].difference(deltaRows)
+    
+    if expTable and 'Measure' in expTable.columnNames():
+        deltaExpRows = expTable[expTable['Measure'] == 'Sov Spread Delta']
+        expTable = expTable.difference(deltaExpRows)
+    
+    fieldsDict = {
+        'source': 'cirt_unified_screen', 
+        'measure_names': ['IR01', 'Sov Spread Delta'], 
+        'calc_level': ['VTD+Currency'],
+        'measuresMissingExposures': ['Sov Spread Delta'],
+        'level': 'APAC LINEAR RATES'
+    }
+
+# =============================================================================
+# TESTING INSTRUCTIONS
+# =============================================================================
+"""
+To test each scenario:
+
+1. Make a backup of your original rateseodlimits.py file
+
+2. For each scenario, add the relevant code snippet at line 83 
+   (after: snapshotsForSource, expTable, fieldsDict = dataSourceFactory(...))
+
+3. Comment out all other scenario code snippets
+
+4. Run the EOD Limits job from Bob monitor
+
+5. Verify the expected outcomes:
+
+   SCENARIO 1 (All VTDs have data):
+   - One "EOD limit based check" email with all 8 VTDs
+   - Attachments for all 8 VTDs present
+   - No "[CFTC Error][Action Required] MissingExposures:" emails
+
+   SCENARIO 1a (GNLR AMRS multiple sources):
+   - Verify both legacy and cirt_unified_screen data in the report
+   - Check that data is not duplicated
+
+   SCENARIO 2a/2b/2c (One VTD all measures missing):
+   - One "EOD limit based check" email with 7 VTDs (missing VTD excluded)
+   - One "[CFTC Error][Action Required] MissingExposures:" email for the missing VTD
+   - Attachments only for the 7 VTDs with data
+   - No attachment for the missing VTD
+
+   SCENARIO 3a/3b/3c (One VTD one measure missing):
+   - One "EOD limit based check" email with all 8 VTDs
+   - One "[CFTC Error][Action Required] MissingExposures:" email for the missing measure
+   - Attachments for all 8 VTDs
+   - The attachment for the affected VTD should only contain data for available measures
+
+   SCENARIO 4 (Multiple VTDs missing data):
+   - One "EOD limit based check" email with 6 VTDs (excluding the 2 affected)
+   - Two separate "[CFTC Error][Action Required] MissingExposures:" emails
+   - Attachments only for the 6 unaffected VTDs + partial attachment for VTD with partial data
+
+6. After testing each scenario, restore the original file before testing the next scenario
+
+7. Document the results and verify they match the expected behavior described above
+"""
