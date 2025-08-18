@@ -1,0 +1,60 @@
+# all the config related to CFTC limit monitoring submissions.
+#set the db to your respective database
+cirt_env: prod_service
+division: FICC    
+le_tier1:
+    BANA:
+        - TPI6
+        - BKA9
+        - BKNA
+        - BOAC
+        - AASL
+        - F3SD
+        - BA8L
+        - Z2DK
+        - JK5T
+        - BAT5
+        - BH9K
+        - BA9C
+    MLI:
+        - MLI
+    BofAS:
+        - BOM
+    BofASE:
+        - Z50Y
+
+legacy_db: ficc_reportresults
+
+db: dev
+holiday_code: NOH
+db_for_holidays_fetch: qfs_prod
+
+mail: dg.remote_risk_core_ind@bofa.com
+recipients_email:
+    - dg.remote_risk_core_ind@bofa.com
+    
+vtd_support_dg:
+    - dg.remote_risk_core_ind@bofa.com
+    
+yaml_mapping:
+    GLOBAL RATES: 
+        global_rates_eod
+    AMRS LINEAR RATES: 
+        amrs_linear_rates_eod
+    APAC LINEAR RATES: 
+        apac_linear_rates_eod
+    EMEA LINEAR RATES:
+        emea_linear_rates_eod
+    GLOBAL NON-LINEAR-AMRS STRUCTURED RATES:
+        gnlr_amrs_rates_eod
+    GLOBAL NON-LINEAR-APAC STRUCTURED RATES:
+        gnlr_apac_rates_eod
+    GLOBAL NON-LINEAR-EMEA STRUCTURED RATES:
+        gnlr_emea_rates_eod
+    CFD AND STRUCTURED NOTES:
+        cfd_structured_notes_eod
+        
+calc_timings:
+    - '12:00 US/Eastern'
+    - '13:00 US/Eastern'
+    - '15:00 US/Eastern'

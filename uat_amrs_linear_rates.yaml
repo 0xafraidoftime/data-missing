@@ -1,0 +1,39 @@
+# common configs
+parent_config: qz.remoterisk.cftc.configs.uat_common.yaml
+
+# portfolio overrides
+business_area: GLOBAL RATES
+# sticking with APAC LINEAR RATES for dev, 
+# as we get active data during apac time.
+trading_desk: AMRS LINEAR RATES
+holiday_code: NYC
+# if we need to do LegalEntity level breach calculations
+breach_calculation_level: LegalEntity
+deeplink_prefix: fin://prod.brisk.manifest.gmui-apps.bankofamerica.com:8088
+cirt_env: prod_service
+parent_role: cftc_user.global_rates.amrs_linear_rates
+
+calc_timings:
+    - '09:00 US/Eastern'
+    - '10:00 US/Eastern'
+    - '11:00 US/Eastern'
+    - '12:00 US/Eastern'
+    - '13:00 US/Eastern'
+    - '14:00 US/Eastern'
+    - '15:00 US/Eastern'
+    - '16:00 US/Eastern'
+    - '17:00 US/Eastern'
+    - '18:00 US/Eastern'
+    - '19:00 US/Eastern'
+
+sources:
+    - cirt_unified_screen:
+        - measure_names:
+            - IR01
+            - Vega
+            - Sov Spread Delta
+        - screen_name: FICC.CFTC.GLOBAL RATES.AMRS LINEAR RATES
+
+breach_alert_recipients:
+    - dg.quartz_ficc_risk_horizontal@bofa.com
+    - sidharth-asvinkumar.shah@bofa.com

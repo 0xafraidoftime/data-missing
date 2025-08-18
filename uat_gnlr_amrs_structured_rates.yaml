@@ -1,0 +1,44 @@
+# common configs
+parent_config: qz.remoterisk.cftc.configs.uat_common.yaml
+
+# portfolio overrides
+business_area: GLOBAL RATES
+# sticking with APAC LINEAR RATES for dev, 
+# as we get active data during apac time.
+trading_desk: GLOBAL NON-LINEAR-AMRS STRUCTURED RATES
+
+# if we need to do LegalEntity level breach calculations
+breach_calculation_level: LegalEntity
+
+parent_role: cftc_user.global_rates.global_non_linear_amrs_structured_rates
+
+holiday_code: BMA
+
+calc_timings:
+    - '11:20 US/Eastern'
+    - '13:20 US/Eastern'
+    - '15:20 US/Eastern'
+
+sources:
+    - legacy:
+        - measure_names:
+            - IR01
+            - Vega
+            - IR Vega
+        - measure_name_overrides:
+            - IR01: CFTC-IRDelta
+            - Vega: CFTC-IRVega
+            - IR Vega: CFTC-IRVegaM1
+        - legacy_db: ficc_reportresults
+        - legacy_db_path: /Applications/RemoteRisk/intraday/official/ciro_amrs_rates_positions/CFTC
+    
+    - cirt_unified_screen:
+        - measure_names:
+            - IR01
+            - Vega
+            - IR Vega
+        - screen_name: FICC.CFTC.GLOBAL RATES.GLOBAL NON-LINEAR-AMRS STRUCTURED RATES
+
+breach_alert_recipients:
+    - dg.quartz_ficc_risk_horizontal@bofa.com
+    - aishvarya.rajendran@bofa.com

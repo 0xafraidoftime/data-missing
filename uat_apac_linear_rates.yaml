@@ -1,0 +1,32 @@
+# common configs
+parent_config: qz.remoterisk.cftc.configs.uat_common.yaml
+
+# portfolio overrides
+business_area: GLOBAL RATES
+# sticking with APAC LINEAR RATES for dev, 
+# as we get active data during apac time.
+trading_desk: APAC LINEAR RATES
+
+# if we need to do LegalEntity level breach calculations
+breach_calculation_level: LegalEntity
+
+parent_role: cftc_user.global_rates.apac_linear_rates
+cirt_env: prod_service
+deeplink_prefix: fin://prod.brisk.manifest.gmui-apps.bankofamerica.com:8088
+
+calc_timings:
+    - '09:00 Asia/Tokyo'
+    - '10:00 Asia/Tokyo'
+    - '11:00 Asia/Tokyo'
+    - '12:00 Asia/Tokyo'
+    - '13:00 Asia/Tokyo'
+    - '14:00 Asia/Tokyo'
+    - '16:00 Asia/Tokyo'
+    - '15:00 US/Eastern'
+
+sources:
+    - cirt_unified_screen:
+        - measure_names:
+            - IR01
+            - Sov Spread Delta
+        - screen_name: FICC.CFTC.GLOBAL RATES.APAC LINEAR RATES

@@ -1,0 +1,41 @@
+# common configs
+parent_config: qz.remoterisk.cftc.configs.uat_common.yaml
+
+# portfolio overrides
+business_area: GLOBAL RATES
+# sticking with APAC LINEAR RATES for dev, 
+# as we get active data during apac time.
+trading_desk: GLOBAL NON-LINEAR-EMEA STRUCTURED RATES
+
+# if we need to do LegalEntity level breach calculations
+breach_calculation_level: LegalEntity
+
+parent_role: cftc_user.global_rates.global_non_linear_emea_structured_rates
+
+cirt_env: prod_service
+
+calc_timings:
+    - '11:20 Europe/London'
+    - '13:20 Europe/London'
+    - '15:20 Europe/London'
+    - '16:20 Europe/London'
+    - '17:20 Europe/London'
+    - '18:20 Europe/London'
+    - '19:20 Europe/London'
+
+
+sources:
+    - cirt_unified_screen:
+        - measure_names:
+            - IR01
+            - Vega
+        - screen_name: FICC.CFTC.GLOBAL RATES.GLOBAL NON-LINEAR-EMEA STRUCTURED RATES
+
+breach_alert_recipients:
+    - dg.quartz_ficc_risk_horizontal@bofa.com
+    - sidharth-asvinkumar.shah@bofa.com
+    - victoria.paterson@bofa.com
+    - robert.oldham@bofa.com
+    - frederic.codet@bofa.com
+    
+deeplink_prefix: fin://prod.brisk.manifest.gmui-apps.bankofamerica.com:8088

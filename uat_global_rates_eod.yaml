@@ -1,0 +1,25 @@
+# common configs
+parent_config: qz.remoterisk.cftc.configs.uat_rates_eod_yaml_mapping.yaml
+
+rra_query_params:
+    VolckerBusinessArea: GLOBAL RATES
+    
+sources:
+    management_rra:
+        - measure_names:
+            - IR Delta
+            - IR Vega
+        - measure_name_overrides:
+            - IR Delta: IR01
+            - IR Vega: Vega
+        - calc_level:
+            - LE
+            - Currency
+
+    cirt_rra:
+      - measure_names:
+          - Inflation Delta
+      - measure_name_overrides:
+          - Inflation Delta: InflationDelta
+      - calc_level:
+          - LE

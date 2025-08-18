@@ -1,0 +1,23 @@
+# common configs
+parent_config: qz.remoterisk.cftc.configs.uat_common.yaml
+
+# portfolio overrides
+business_area: GLOBAL RATES
+trading_desk: CFD AND STRUCTURED NOTES
+holiday_code: BMA
+
+cirt_env: prod_service
+
+parent_role: cftc_user.global_rates.cfd_and_structured_notes
+
+calc_timings:
+    - '04:00 US/Eastern'
+    - '10:00 US/Eastern'
+    - '14:00 US/Eastern'
+
+sources:
+    - management_rra:
+        - measure_names:
+            - Vega
+            - IR01
+        - screen_name: FICC.CFTC.GLOBAL RATES.CFD AND STRUCTURED NOTES
