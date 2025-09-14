@@ -1,0 +1,27 @@
+Key Enhancements for Multiple Data Sources:
+
+Source-Specific Missing Exposure Messages: The measuresMissingExposures field now includes the data source name, following the format shown in your email snapshot:
+
+'IR Delta missing from [legacy] datasource'
+'Vega missing from [cirt_rra] datasource'
+
+
+Enhanced GNLR AMRS Testing (Scenario 5): Added specific scenarios to test when one data source has missing measures while the other has data, which should generate alerts like:
+
+Legacy source missing IR Delta
+CIRT source missing Vega
+
+
+Complete Data Source Failure (Scenario 6): Added testing for when an entire data source is unavailable.
+
+Implementation Changes:
+
+Target File: Modified ratesdatasources.py instead of rateseodlimits.py
+Function Location: Modifications go in the dataSourceFactory function
+Source Tracking: Each simulation function now includes the sourceKey parameter to track which data source the missing measures should be attributed to
+
+Key Testing Points:
+
+Email Format Verification: Ensure missing exposure alerts follow the pattern: "[CFTC Error][Action Required] MissingExposures: VTD_NAME measures MEASURE_LIST missing from [SOURCE_NAME] datasource"
+Multi-Source VTDs: Particularly important for GNLR AMRS which has both legacy and cirt_unified_screen sources
+Granular Source Attribution: Each missing measure should specify exactly which data source it's missing from
