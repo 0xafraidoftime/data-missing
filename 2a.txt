@@ -1,0 +1,234 @@
+import qzsix
+import qztable
+
+from qz.core import bobfns
+from qz.tools.gov.lib import logging
+from qz.remoterisk.cftc.utils.config import CFTCConfStatic
+from qz.data.where import Where
+from qz.remoterisk.cftc.limits import legacy_exposures
+from qz.remoterisk.cftc.limits.utils import concatenateExpTables
+from qz.remoterisk.cftc.risk.intraday import fetch_exposures_eod
+from qz.remoterisk.cftc.utils.persistence import MEASURE_COL
+
+logger = logging.getLogger(__name__)
+
+def dataSourceFactory(cfg, key, dataSources, jobTimeStamp, name):
+    """
+    SCENARIO 2a: AMRS LINEAR RATES - All measures missing (and handle GLOBAL RATES absent)
+    This function delegates to fetchFromRRA or fetchFromLegacy but ensures safe handling
+    when exposures are missing for entire VTDs.
+    """
+    logger.info(f"SCENARIO 2a: Processing VTD '{name}' with source '{key}'")
+    if key in ['management_rra', 'cirt_rra']:
+        return fetchFromRRA(cfg, key, dataSources, jobTimeStamp, name)
+    if key == 'legacy':
+        return fetchFromLegacy(cfg, key, dataSources, jobTimeStamp, name)
+    # Fallback - should not happen; return empty values
+    return {}, qztable.Table(), createParams(key, dataSources)
+
+
+def createFilter(cfg):
+    filter = Where('DivisionName') == cfg.get('division', 'FICC')
+    for k, v in qzsix.iteritems(cfg.get('rra_query_params', {}) or {}):
+        if k in ['VolckerBusinessArea', 'VolckerTradingDesk']:
+            filter = filter & (Where(k) == v)
+    return filter
+
+
+def createParams(key, dataSources):
+    fieldsDict = {}
+    fieldsDict.update({'source': key})
+    # defensive: dataSources.get(key) might be None
+    for field in dataSources.get(key, []) or []:
+        fieldsDict.update(field)
+    return fieldsDict
+
+
+def getMissingMeasures(measuresMissingExposures, measure, fieldsDict):
+    """
+    Maintain a mapping { measure_name : [source] } in fieldsDict under 'measuresMissingExposures'.
+    This mirrors original behaviour so alerting code can consume the same shape.
+    """
+    measuresMissingExposures.update({measure: [fieldsDict.get('source')]})
+    fieldsDict.update({'measuresMissingExposures': measuresMissingExposures})
+    return fieldsDict
+
+
+def fetchFromRRA(cfg, key, dataSources, jobTimeStamp, name):
+    """
+    Fetch exposures from RRA (CIRT/management) with robust handling for missing data.
+    If the VTD is AMRS LINEAR RATES or GLOBAL RATES (your test case), we simulate ALL measures missing.
+    Always return a qztable.Table (empty if needed) instead of None.
+    """
+    snapshots = {}
+    expTable = None          # keep None during concatenation; convert to empty table before returning
+    measuresMissingExposures = {}
+    fieldsDict = createParams(key, dataSources)
+    filter = createFilter(cfg)
+
+    # ---------- SCENARIO 2a SIMULATION ----------
+    if name in ("AMRS LINEAR RATES", "GLOBAL RATES"):
+        logger.info(f"=== SCENARIO 2a ACTIVE: Simulating ALL measures missing for VTD '{name}' (source '{key}') ===")
+        for measure in fieldsDict.get('measure_names', []):
+            # Simulate empty snapshot and empty exposure table for this measure
+            snapshots[measure] = qztable.Table()
+            emptyExposureTable = qztable.Table()
+            expTable = concatenateExpTables(expTable, emptyExposureTable)
+            # Mark missing (use measure name as key so downstream logic can map measure->source)
+            fieldsDict = getMissingMeasures(measuresMissingExposures, measure, fieldsDict)
+        # ensure non-None return for expTable
+        if expTable is None:
+            expTable = qztable.Table()
+        return snapshots, expTable, fieldsDict
+
+    # ---------- NORMAL PROCESSING ----------
+    for measure in fieldsDict.get('measure_names', []):
+        querySet = {}
+        querySet.update({MEASURE_COL: measure})
+        # keep compatibility: some code expects 'Measure' key as well - add both to be safe
+        querySet.update({'Measure': measure})
+        querySet.update(fieldsDict)
+
+        # Attempt fetch - may return None if no data
+        try:
+            measureExpTable = fetch_exposures_eod(cfg, querySet, filter)
+        except Exception as e:
+            logger.warning(f"fetch_exposures_eod raised for measure '{measure}', VTD '{name}', source '{key}': {e}")
+            measureExpTable = None
+
+        # If fetch returned no table, mark missing and continue
+        if not measureExpTable:
+            logger.info(f"No exposures returned for measure '{measure}' (VTD '{name}', source '{key}') — marking missing.")
+            fieldsDict = getMissingMeasures(measuresMissingExposures, measure, fieldsDict)
+            continue
+
+        # Guard rename: if rename fails (unexpected schema), mark as missing and continue
+        try:
+            # Some fetch_exposures_eod return a column like "<Measure>_USD" that we unify to 'Exposures_USD'
+            current_col = '_'.join([querySet.get(MEASURE_COL, measure), 'USD'])
+            measureExpTable.renameCol([current_col], ['Exposures_USD'])
+        except Exception as e:
+            logger.warning(f"Failed to rename exposures column for '{measure}' (VTD '{name}', source '{key}'): {e}")
+            # treat as missing (avoid throwing)
+            fieldsDict = getMissingMeasures(measuresMissingExposures, measure, fieldsDict)
+            continue
+
+        # extendConst may also fail on some table shapes; guard it
+        try:
+            measureExposureTable = measureExpTable.extendConst(measure, MEASURE_COL, 'string')
+        except Exception as e:
+            logger.warning(f"Failed to extendConst for '{measure}' (VTD '{name}', source '{key}'): {e}")
+            fieldsDict = getMissingMeasures(measuresMissingExposures, measure, fieldsDict)
+            continue
+
+        # Old special-casing preserved (but robust): transform to empty if needed
+        if measure in ["IR Delta", "IR Vega", "Inflation Delta"] and name == "GLOBAL RATES":
+            measureExposureTable = qztable.Table(measureExposureTable.getSchema())
+            measureExpTable = qztable.Table(measureExpTable.getSchema())
+        if measure in ["IR Delta", "Inflation Delta"] and name == "GLOBAL NON-LINEAR-AMRS STRUCTURED RATES":
+            measureExposureTable = qztable.Table(measureExposureTable.getSchema())
+            measureExpTable = qztable.Table(measureExpTable.getSchema())
+        if measure in ["Inflation Delta"] and name == "GLOBAL NON-LINEAR-EMEA STRUCTURED RATES":
+            measureExposureTable = qztable.Table(measureExposureTable.getSchema())
+            measureExpTable = qztable.Table(measureExpTable.getSchema())
+
+        snapshots.update({measure: measureExpTable})
+        expTable = concatenateExpTables(expTable, measureExposureTable)
+
+        # If exposure table ended up empty/falsy, mark missing
+        if not measureExposureTable:
+            fieldsDict = getMissingMeasures(measuresMissingExposures, measure, fieldsDict)
+
+    # ensure we never return None for expTable
+    if expTable is None:
+        expTable = qztable.Table()
+
+    return snapshots, expTable, fieldsDict
+
+
+def fetchFromLegacy(cfg, key, dataSources, jobTimeStamp, name):
+    """
+    Fetch exposures from legacy back-end. Robust guards added so missing data does not
+    cause AttributeErrors downstream.
+    """
+    snapshots = {}
+    expTable = None
+    measuresMissingExposures = {}
+    fieldsDict = createParams(key, dataSources)
+
+    for measure in fieldsDict.get('measure_names', []):
+        querySet = {}
+        querySet.update({MEASURE_COL: measure})
+        querySet.update({'Measure': measure})
+        querySet.update(fieldsDict)
+        querySet.update(cfg.get('rra_query_params') or {})
+        # guard tz acquisition
+        try:
+            querySet['tz'] = jobTimeStamp.tzinfo.zone
+        except Exception:
+            querySet['tz'] = None
+
+        try:
+            legacyExpTable, expPath = legacy_exposures.fetch(querySet, jobTimeStamp.hour, cfg)
+        except Exception as e:
+            logger.warning(f"legacy_exposures.fetch failed for '{measure}' (VTD '{name}', source '{key}'): {e}")
+            legacyExpTable = None
+            expPath = None
+
+        if not legacyExpTable:
+            logger.info(f"No legacy exposures for measure '{measure}' (VTD '{name}', source '{key}') — marking missing.")
+            fieldsDict = getMissingMeasures(measuresMissingExposures, measure, fieldsDict)
+            continue
+
+        # guard extendConst
+        try:
+            legacyExposureTable = legacyExpTable.extendConst(measure, MEASURE_COL, 'string')
+        except Exception as e:
+            logger.warning(f"legacy extendConst failed for '{measure}' (VTD '{name}', source '{key}'): {e}")
+            fieldsDict = getMissingMeasures(measuresMissingExposures, measure, fieldsDict)
+            continue
+
+        # Old special-case trimming (preserved)
+        if measure in ["IRDelta"] and name == "GLOBAL NON-LINEAR-EMEA STRUCTURED RATES":
+            legacyExposureTable = qztable.Table(legacyExposureTable.getSchema())
+            legacyExpTable = qztable.Table(legacyExpTable.getSchema())
+        if measure in ["IR Delta"] and name == "GLOBAL NON-LINEAR-AMRS STRUCTURED RATES":
+            legacyExposureTable = qztable.Table(legacyExposureTable.getSchema())
+            legacyExpTable = qztable.Table(legacyExpTable.getSchema())
+
+        snapshots.update({measure: legacyExpTable})
+        expTable = concatenateExpTables(expTable, legacyExposureTable)
+
+        if not legacyExposureTable:
+            fieldsDict = getMissingMeasures(measuresMissingExposures, measure, fieldsDict)
+
+    # ensure we never return None for expTable
+    if expTable is None:
+        expTable = qztable.Table()
+
+    return snapshots, expTable, fieldsDict
+
+
+def run(config='dev_gnlr_amrs_rates_eod'):
+    cfg = CFTCConfStatic(config)
+    key = 'legacy'
+    dataSources = {
+        'cirt_rra': [
+            {'measure_names': ['IR Delta', 'IR Vega']},
+            {'measure_name_overrides': [{'IR Delta': 'IR01'}, {'IR Vega': 'Vega'}]},
+            {'calc_level': ['VTD']}
+        ],
+        'legacy': [
+            {'measure_names': ['IR Delta', 'IR Vega']},
+            {'measure_name_overrides': [{'IR Delta': 'CFTC-IRDelta'}, {'IR Vega': 'CFTC-IRVega'}]},
+            {'legacy_db': 'ficc_reportresults'},
+            {'legacy_db_path': '/Applications/RemoteRisk/intraday/official/ciro_amrs_rates_positions/CFTC'}
+        ]
+    }
+    # call dataSourceFactory for a quick sanity run from this module
+    dataSourceFactory(cfg, key, dataSources, bobfns._getNow(), 'AMRS LINEAR RATES')
+
+
+def main():
+    logging.compliance(__name__, "Bob Run", action=logging.Action.ENTRYPOINT)
+    bobfns.run(run)
